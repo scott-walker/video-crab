@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/scott-walker/video-crab/main/.github/logo.svg" width="120" alt="VideoCrab" />
+  <a href="https://scott-walker.github.io/video-crab/">
+    <img src="https://raw.githubusercontent.com/scott-walker/video-crab/main/.github/logo.svg" width="120" alt="VideoCrab" />
+  </a>
 </p>
 
-<h1 align="center">VideoCrab</h1>
+<h1 align="center"><a href="https://scott-walker.github.io/video-crab/">VideoCrab</a></h1>
 
 <p align="center">
   <strong>AI-powered video analysis & trimming tool</strong><br/>
