@@ -235,6 +235,85 @@
       .feature-name { min-width: auto; }
     }
 
+    /* ── Showcase ── */
+    .showcase {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 4rem 2rem 6rem;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 1.2rem;
+    }
+
+    .showcase-item {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
+    }
+
+    .showcase-item:hover {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 12px 40px rgba(255, 61, 138, 0.1);
+      border-color: rgba(255, 61, 138, 0.3);
+      z-index: 2;
+    }
+
+    .showcase-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .showcase-item.hero-shot {
+      grid-column: 1 / -1;
+      max-height: 420px;
+    }
+
+    .showcase-item.hero-shot img {
+      object-position: top;
+    }
+
+    .showcase-item .showcase-label {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 2rem 1.2rem 1rem;
+      background: linear-gradient(to top, rgba(7,7,11,0.92) 0%, transparent 100%);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .showcase-item:hover .showcase-label {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .showcase-label span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+      }
+      .showcase-item.hero-shot {
+        max-height: 260px;
+      }
+    }
+
     /* ── How it works ── */
     .pipeline {
       display: flex; gap: 0;
@@ -446,6 +525,35 @@
       </div>
     </div>
   </section>
+
+  <!-- ── Showcase ── -->
+  <div class="showcase">
+    <p class="section-label" style="max-width:1100px; margin: 0 auto 1rem;">See it in action</p>
+    <h2 class="section-title" style="max-width:1100px; margin: 0 auto 2.5rem;">Built for the workflow,<br>not just the feature list.</h2>
+
+    <div class="showcase-grid">
+      <div class="showcase-item hero-shot">
+        <img src="screenshots/screen2.png" alt="Video editor with waveform timeline" loading="lazy" />
+        <div class="showcase-label"><span>Editor</span> — waveform timeline, playback controls, frame-precise trimming</div>
+      </div>
+      <div class="showcase-item">
+        <img src="screenshots/screen5.png" alt="Semantic analysis results" loading="lazy" />
+        <div class="showcase-label"><span>Analysis</span> — 3-stage AI pipeline with topics, moments & clips</div>
+      </div>
+      <div class="showcase-item">
+        <img src="screenshots/screen4.png" alt="Clips sidebar" loading="lazy" />
+        <div class="showcase-label"><span>Clips</span> — manage, name, and export trimmed segments</div>
+      </div>
+      <div class="showcase-item">
+        <img src="screenshots/screen7.png" alt="Transcript sidebar" loading="lazy" />
+        <div class="showcase-label"><span>Transcript</span> — clickable segments with per-region transcription</div>
+      </div>
+      <div class="showcase-item">
+        <img src="screenshots/screen8.png" alt="Settings page" loading="lazy" />
+        <div class="showcase-label"><span>Settings</span> — API keys, models, language, TTS voice & proxy</div>
+      </div>
+    </div>
+  </div>
 
   <!-- ── How it works ── -->
   <section>
