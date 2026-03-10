@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VideoCrab — AI-Powered Video Analysis</title>
+  <meta name="description" content="Transcribe, analyze, and clip long-form video with AI. Open-source desktop app for macOS, Windows, and Linux.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #07070b;
+      --bg-panel: #0e0e14;
+      --bg-card: #141420;
+      --bg-elevated: #1a1a28;
+      --accent: #ff3d8a;
+      --accent-glow: rgba(255, 61, 138, 0.12);
+      --accent-soft: #ff6ba6;
+      --text-primary: #f0eef4;
+      --text-secondary: #a8a4b4;
+      --text-muted: #5e5a6e;
+      --border: #22202e;
+      --font-display: 'Space Grotesk', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(255, 61, 138, 0.08) 0%, transparent 70%);
+      top: 10%; left: 50%; transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .hero-logo {
+      width: 100px; height: 100px;
+      margin-bottom: 2rem;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      font-family: var(--font-mono);
+    }
+
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulse 2s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 8vw, 5.5rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 .accent { color: var(--accent); }
+
+    .hero-sub {
+      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin-bottom: 3rem;
+      line-height: 1.7;
+    }
+
+    /* ── Download buttons ── */
+    .download-row {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .dl-btn {
+      display: inline-flex; align-items: center; gap: 0.75rem;
+      padding: 0.9rem 1.8rem;
+      border-radius: 14px;
+      font-family: var(--font-display);
+      font-size: 1rem; font-weight: 600;
+      text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer; border: none;
+    }
+
+    .dl-btn:hover { transform: translateY(-3px); }
+
+    .dl-btn-primary {
+      background: var(--accent);
+      color: var(--bg-deep);
+      box-shadow: 0 4px 24px rgba(255, 61, 138, 0.3);
+    }
+    .dl-btn-primary:hover { box-shadow: 0 8px 32px rgba(255, 61, 138, 0.45); }
+
+    .dl-btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .dl-btn-secondary:hover { border-color: var(--accent); background: var(--bg-elevated); }
+
+    .dl-btn svg { width: 20px; height: 20px; }
+
+    .dl-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 0.5rem;
+    }
+
+    /* ── Sections ── */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 6rem 2rem;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-desc {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      max-width: 640px;
+      line-height: 1.7;
+      margin-bottom: 3rem;
+    }
+
+    /* ── Feature grid ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(255, 61, 138, 0.3);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-icon {
+      width: 48px; height: 48px;
+      background: var(--accent-glow);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .feature-icon svg { width: 24px; height: 24px; color: var(--accent); }
+
+    .feature-card h3 {
+      font-size: 1.2rem; font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* ── How it works ── */
+    .pipeline {
+      display: flex; gap: 0;
+      align-items: stretch;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .pipeline-step {
+      flex: 1; min-width: 200px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .pipeline-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 50%;
+      width: 2px; height: 40%;
+      background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+      transform: translateY(-50%);
+    }
+
+    .pipeline-num {
+      font-family: var(--font-mono);
+      font-size: 2.5rem; font-weight: 700;
+      color: var(--accent);
+      opacity: 0.3;
+      margin-bottom: 0.5rem;
+    }
+
+    .pipeline-step h4 {
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pipeline-step p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Tech stack ── */
+    .tech-row {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 2rem;
+    }
+
+    .tech-tag {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.6rem 1.2rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* ── CTA ── */
+    .cta {
+      text-align: center;
+      padding: 6rem 2rem;
+      position: relative;
+    }
+
+    .cta::before {
+      content: '';
+      position: absolute;
+      width: 500px; height: 300px;
+      background: radial-gradient(ellipse, rgba(255, 61, 138, 0.06) 0%, transparent 70%);
+      bottom: 0; left: 50%; transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .cta h2 {
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .cta p {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .download-row { flex-direction: column; align-items: center; }
+      .dl-btn { width: 100%; max-width: 300px; justify-content: center; }
+      .pipeline-step:not(:last-child)::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <svg class="hero-logo" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bg" cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stop-color="#1e1e2a"/>
+          <stop offset="100%" stop-color="#0c0c10"/>
+        </radialGradient>
+      </defs>
+      <rect width="120" height="120" rx="28" fill="url(#bg)"/>
+      <ellipse cx="60" cy="68" rx="22" ry="16" fill="#ff3d8a" opacity="0.9"/>
+      <circle cx="48" cy="50" r="5.5" fill="#ff3d8a"/>
+      <circle cx="72" cy="50" r="5.5" fill="#ff3d8a"/>
+      <circle cx="48" cy="49.5" r="2.5" fill="#0c0c10"/>
+      <circle cx="72" cy="49.5" r="2.5" fill="#0c0c10"/>
+      <line x1="53" y1="58" x2="50" y2="53" stroke="#e0326f" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="67" y1="58" x2="70" y2="53" stroke="#e0326f" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M38 64 Q27 56 25 62 Q23 68 32 67 Z" fill="#ff3d8a" opacity="0.8"/>
+      <path d="M38 72 Q27 80 25 74 Q23 68 32 70 Z" fill="#ff3d8a" opacity="0.8"/>
+      <path d="M82 64 Q93 56 95 62 Q97 68 88 67 Z" fill="#ff3d8a" opacity="0.8"/>
+      <path d="M82 72 Q93 80 95 74 Q97 68 88 70 Z" fill="#ff3d8a" opacity="0.8"/>
+      <line x1="40" y1="76" x2="30" y2="86" stroke="#e0326f" stroke-width="2" stroke-linecap="round"/>
+      <line x1="43" y1="80" x2="34" y2="91" stroke="#e0326f" stroke-width="2" stroke-linecap="round"/>
+      <line x1="80" y1="76" x2="90" y2="86" stroke="#e0326f" stroke-width="2" stroke-linecap="round"/>
+      <line x1="77" y1="80" x2="86" y2="91" stroke="#e0326f" stroke-width="2" stroke-linecap="round"/>
+      <path d="M54 72 Q60 77 66 72" stroke="#0c0c10" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+
+    <div class="hero-badge">
+      <span class="dot"></span>
+      v2.0.0 — open source
+    </div>
+
+    <h1>Video<span class="accent">Crab</span></h1>
+
+    <p class="hero-sub">
+      Drop a 2-hour video. Get a detailed breakdown of everything discussed — with timestamps, topics, and clips. Powered by AI.
+    </p>
+
+    <div class="download-row">
+      <a class="dl-btn dl-btn-primary" href="https://github.com/scott-walker/video-crab/releases/latest" id="dl-main">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download for <span id="dl-os">your platform</span>
+      </a>
+      <a class="dl-btn dl-btn-secondary" href="https://github.com/scott-walker/video-crab">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <div class="download-row" style="gap: 0.5rem;">
+      <a class="dl-btn dl-btn-secondary" href="https://github.com/scott-walker/video-crab/releases/latest" style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        macOS
+      </a>
+      <a class="dl-btn dl-btn-secondary" href="https://github.com/scott-walker/video-crab/releases/latest" style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+        Windows
+      </a>
+      <a class="dl-btn dl-btn-secondary" href="https://github.com/scott-walker/video-crab/releases/latest" style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        Linux
+      </a>
+    </div>
+
+    <p class="dl-hint">Requires FFmpeg · Free & open source · MIT License</p>
+  </div>
+
+  <!-- ── Features ── -->
+  <section>
+    <p class="section-label">Features</p>
+    <h2 class="section-title">Everything you need to<br>work with long videos</h2>
+    <p class="section-desc">
+      VideoCrab replaces the tedious process of watching hours of footage. Load your video, let AI do the heavy lifting, and get actionable insights in minutes.
+    </p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </div>
+        <h3>Visual Trimming</h3>
+        <p>Waveform timeline with draggable handles. Click-and-drag to select ranges. Precise timecodes and clip management.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        </div>
+        <h3>AI Transcription</h3>
+        <p>OpenAI Whisper-powered speech-to-text. Multi-language support with per-region transcription. Clickable timestamp navigation.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h3>Deep Semantic Analysis</h3>
+        <p>3-stage context-aware pipeline. Understands the full narrative before analyzing chunks. Custom focus queries with voice input.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </div>
+        <h3>TTS Narration</h3>
+        <p>ElevenLabs text-to-speech reads analyses aloud. Section-based fetching for instant playback. Built-in mini-player with caching.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>Project Management</h3>
+        <p>Organize work into projects with auto-save. All transcripts and analyses persist between sessions. Switch between projects instantly.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+        </div>
+        <h3>Smart Clipping</h3>
+        <p>AI suggests logical clip boundaries based on content. Save, name, and export individual clips with FFmpeg.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── How it works ── -->
+  <section>
+    <p class="section-label">How it works</p>
+    <h2 class="section-title">From raw video to<br>structured insights</h2>
+    <p class="section-desc">
+      The 3-stage analysis pipeline ensures accurate understanding of your content, even for multi-hour recordings.
+    </p>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">01</div>
+        <h4>Context Extraction</h4>
+        <p>AI reads the full transcript to understand participants, topic, and narrative arc.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">02</div>
+        <h4>Parallel Analysis</h4>
+        <p>10-minute chunks analyzed in parallel, each with full video context for accuracy.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">03</div>
+        <h4>Synthesis</h4>
+        <p>Chunk analyses merged into one cohesive narrative with topics, moments, and clips.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tech ── -->
+  <section style="text-align: center;">
+    <p class="section-label">Built with</p>
+    <h2 class="section-title">Modern, open stack</h2>
+    <div class="tech-row">
+      <span class="tech-tag">Electron</span>
+      <span class="tech-tag">SolidJS</span>
+      <span class="tech-tag">Vite</span>
+      <span class="tech-tag">OpenAI Whisper</span>
+      <span class="tech-tag">Groq (Llama 3.3 70B)</span>
+      <span class="tech-tag">ElevenLabs</span>
+      <span class="tech-tag">FFmpeg</span>
+    </div>
+  </section>
+
+  <!-- ── CTA ── -->
+  <div class="cta">
+    <h2>Ready to try?</h2>
+    <p>Free, open source, runs locally on your machine.</p>
+    <div class="download-row">
+      <a class="dl-btn dl-btn-primary" href="https://github.com/scott-walker/video-crab/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Latest Release
+      </a>
+      <a class="dl-btn dl-btn-secondary" href="https://github.com/scott-walker/video-crab">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        Source Code
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Made with care. Open source under <a href="https://github.com/scott-walker/video-crab/blob/main/LICENSE">MIT License</a>.<br/>
+      <a href="https://github.com/scott-walker/video-crab">GitHub</a> · <a href="https://github.com/scott-walker/video-crab/releases">Releases</a> · <a href="https://github.com/scott-walker/video-crab/issues">Issues</a>
+    </p>
+  </footer>
+
+  <script>
+    // Auto-detect OS for primary download button
+    const os = navigator.platform.toLowerCase();
+    const dlOs = document.getElementById('dl-os');
+    if (os.includes('mac')) dlOs.textContent = 'macOS';
+    else if (os.includes('win')) dlOs.textContent = 'Windows';
+    else if (os.includes('linux')) dlOs.textContent = 'Linux';
+  </script>
+
+</body>
+</html>
