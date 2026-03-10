@@ -190,46 +190,49 @@
       margin-bottom: 3rem;
     }
 
-    /* ── Feature grid ── */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
+    /* ── Feature list ── */
+    .features-list {
+      display: flex; flex-direction: column;
+      gap: 0;
     }
 
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2rem;
-      transition: all 0.3s ease;
+    .feature-row {
+      display: flex; align-items: baseline; gap: 1.5rem;
+      padding: 1.6rem 0;
+      border-bottom: 1px solid var(--border);
+      transition: all 0.25s ease;
     }
 
-    .feature-card:hover {
-      border-color: rgba(255, 61, 138, 0.3);
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    .feature-row:first-child { border-top: 1px solid var(--border); }
+
+    .feature-row:hover { padding-left: 1rem; }
+
+    .feature-row:hover .feature-num { color: var(--accent); }
+
+    .feature-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      width: 28px;
+      transition: color 0.25s ease;
     }
 
-    .feature-icon {
-      width: 48px; height: 48px;
-      background: var(--accent-glow);
-      border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 1.25rem;
+    .feature-name {
+      font-size: 1.15rem; font-weight: 600;
+      flex-shrink: 0;
+      min-width: 200px;
     }
 
-    .feature-icon svg { width: 24px; height: 24px; color: var(--accent); }
-
-    .feature-card h3 {
-      font-size: 1.2rem; font-weight: 600;
-      margin-bottom: 0.75rem;
-    }
-
-    .feature-card p {
-      color: var(--text-secondary);
+    .feature-desc {
+      color: var(--text-muted);
       font-size: 0.95rem;
-      line-height: 1.6;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 768px) {
+      .feature-row { flex-direction: column; gap: 0.3rem; }
+      .feature-name { min-width: auto; }
     }
 
     /* ── How it works ── */
@@ -412,59 +415,34 @@
 
   <!-- ── Features ── -->
   <section>
-    <p class="section-label">Features</p>
-    <h2 class="section-title">Everything you need to<br>work with long videos</h2>
-    <p class="section-desc">
-      VideoCrab replaces the tedious process of watching hours of footage. Load your video, let AI do the heavy lifting, and get actionable insights in minutes.
-    </p>
+    <p class="section-label">What it does</p>
+    <h2 class="section-title">Drop a video.<br>Get everything out of it.</h2>
 
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-        </div>
-        <h3>Visual Trimming</h3>
-        <p>Waveform timeline with draggable handles. Click-and-drag to select ranges. Precise timecodes and clip management.</p>
+    <div class="features-list">
+      <div class="feature-row">
+        <span class="feature-num">01</span>
+        <span class="feature-name">Transcribe</span>
+        <span class="feature-desc">Whisper-powered speech-to-text. Segment by region, navigate by timestamp, multi-language.</span>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-        </div>
-        <h3>AI Transcription</h3>
-        <p>OpenAI Whisper-powered speech-to-text. Multi-language support with per-region transcription. Clickable timestamp navigation.</p>
+      <div class="feature-row">
+        <span class="feature-num">02</span>
+        <span class="feature-name">Analyze</span>
+        <span class="feature-desc">3-stage context-aware AI pipeline. Detailed narrative, topics, key moments. Ask about specific aspects with voice.</span>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <h3>Deep Semantic Analysis</h3>
-        <p>3-stage context-aware pipeline. Understands the full narrative before analyzing chunks. Custom focus queries with voice input.</p>
+      <div class="feature-row">
+        <span class="feature-num">03</span>
+        <span class="feature-name">Trim & Clip</span>
+        <span class="feature-desc">Waveform timeline, drag-to-select, AI-suggested clip boundaries. Export with FFmpeg.</span>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </div>
-        <h3>TTS Narration</h3>
-        <p>ElevenLabs text-to-speech reads analyses aloud. Section-based fetching for instant playback. Built-in mini-player with caching.</p>
+      <div class="feature-row">
+        <span class="feature-num">04</span>
+        <span class="feature-name">Listen</span>
+        <span class="feature-desc">TTS narration of analyses. Section-based streaming, built-in player, per-session caching.</span>
       </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        </div>
-        <h3>Project Management</h3>
-        <p>Organize work into projects with auto-save. All transcripts and analyses persist between sessions. Switch between projects instantly.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-        </div>
-        <h3>Smart Clipping</h3>
-        <p>AI suggests logical clip boundaries based on content. Save, name, and export individual clips with FFmpeg.</p>
+      <div class="feature-row">
+        <span class="feature-num">05</span>
+        <span class="feature-name">Organize</span>
+        <span class="feature-desc">Projects with auto-save. All transcripts and analyses persist. Pick up where you left off.</span>
       </div>
     </div>
   </section>
