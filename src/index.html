@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Trimmer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deepest: #07070a;
+      --bg-deep: #0c0c10;
+      --bg-panel: #111116;
+      --bg-surface: #18181f;
+      --bg-elevated: #1f1f28;
+      --border: #2a2a35;
+      --border-subtle: #1e1e27;
+      --text-primary: #e8e6e1;
+      --text-secondary: #8a8892;
+      --text-muted: #55535e;
+      --accent: #d4a853;
+      --accent-dim: #b8923f;
+      --accent-glow: rgba(212, 168, 83, 0.15);
+      --accent-glow-strong: rgba(212, 168, 83, 0.3);
+      --red: #c45c5c;
+      --green: #5cad6f;
+      --blue: #5c8fc4;
+      --purple: #9b7dd4;
+      --trim-region: rgba(212, 168, 83, 0.08);
+      --trim-excluded: rgba(0, 0, 0, 0.55);
+      --handle-w: 14px;
+      --timeline-h: 72px;
+      --sidebar-w: 280px;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'DM Sans', system-ui, sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-deepest);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      user-select: none;
+      -webkit-app-region: no-drag;
+    }
+
+    /* ── Title bar ── */
+    .titlebar {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 40px; padding: 0 12px;
+      background: var(--bg-deep); border-bottom: 1px solid var(--border-subtle);
+      -webkit-app-region: drag;
+    }
+    .titlebar-brand {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.5px; color: var(--text-secondary); text-transform: uppercase;
+    }
+    .titlebar-brand svg { opacity: 0.6; }
+    .titlebar-controls { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+    .titlebar-btn {
+      width: 36px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; color: var(--text-muted); cursor: pointer;
+      border-radius: 4px; transition: all 0.15s;
+    }
+    .titlebar-btn:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+    .titlebar-btn.close:hover { background: var(--red); color: #fff; }
+
+    /* ── Pages ── */
+    .page { display: none; height: calc(100vh - 40px); }
+    .page.active { display: flex; flex-direction: column; }
+
+    /* ── App layout ── */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w); min-width: var(--sidebar-w);
+      background: var(--bg-panel); border-right: 1px solid var(--border-subtle);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 12px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .sidebar-title {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; color: var(--text-muted); text-transform: uppercase;
+    }
+    .clip-count {
+      font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+      background: var(--bg-surface); padding: 2px 8px; border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+    }
+    .sidebar-clips { flex: 1; overflow-y: auto; padding: 8px; }
+    .sidebar-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; gap: 12px; padding: 20px; text-align: center;
+    }
+    .sidebar-empty svg { width: 32px; height: 32px; color: var(--text-muted); opacity: 0.3; }
+    .sidebar-empty-text { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .sidebar-empty-hint { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); opacity: 0.5; }
+
+    /* ── Clip card ── */
+    .clip-card {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;
+      cursor: pointer; transition: all 0.15s; position: relative;
+      animation: clipIn 0.25s ease-out;
+    }
+    @keyframes clipIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .clip-card:hover { border-color: var(--border); background: var(--bg-elevated); }
+    .clip-card.active { border-color: var(--accent); background: var(--accent-glow); }
+    .clip-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .clip-card-name {
+      font-size: 13px; font-weight: 500; color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;
+    }
+    .clip-card-actions { display: flex; gap: 4px; }
+    .clip-action-btn {
+      width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; color: var(--text-muted);
+      border-radius: 5px; cursor: pointer; transition: all 0.15s;
+    }
+    .clip-action-btn:hover { background: var(--bg-surface); color: var(--text-secondary); }
+    .clip-action-btn.export-clip:hover { color: var(--green); }
+    .clip-action-btn.delete-clip:hover { color: var(--red); }
+    .clip-action-btn svg { width: 14px; height: 14px; }
+    .clip-card-times { display: flex; align-items: center; gap: 6px; }
+    .clip-time { font-family: var(--font-mono); font-size: 11px; }
+    .clip-time.in { color: var(--green); }
+    .clip-time.out { color: var(--red); }
+    .clip-arrow { color: var(--text-muted); font-size: 10px; }
+    .clip-dur {
+      font-family: var(--font-mono); font-size: 10px; color: var(--accent);
+      margin-left: auto; background: var(--accent-glow); padding: 2px 6px; border-radius: 4px;
+    }
+    .clip-minibar { height: 4px; background: var(--bg-deep); border-radius: 2px; margin-top: 8px; position: relative; overflow: hidden; }
+    .clip-minibar-fill { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; opacity: 0.5; }
+    .clip-card.active .clip-minibar-fill { opacity: 0.8; }
+    .clip-card.exporting { pointer-events: none; opacity: 0.6; }
+
+    /* ── Main content ── */
+    .main-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ── Video area ── */
+    .video-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-deepest); position: relative; overflow: hidden;
+    }
+    .video-area::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, rgba(212, 168, 83, 0.02) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    video { max-width: 100%; max-height: 100%; display: block; border-radius: 2px; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+
+    .drop-zone {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 20px; width: 100%; height: 100%; cursor: pointer; transition: all 0.3s;
+    }
+    .drop-zone.drag-over .drop-icon { transform: scale(1.1); }
+    .drop-zone.drag-over .drop-ring { border-color: var(--accent); box-shadow: 0 0 40px var(--accent-glow-strong); }
+    .drop-ring {
+      width: 120px; height: 120px; border-radius: 50%; border: 2px dashed var(--border);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .drop-icon { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .drop-icon svg { width: 40px; height: 40px; color: var(--text-muted); }
+    .drop-text { font-size: 14px; color: var(--text-muted); letter-spacing: 0.3px; }
+    .drop-text strong { color: var(--accent); font-weight: 500; }
+    .drop-hint { font-size: 11px; color: var(--text-muted); opacity: 0.5; font-family: var(--font-mono); }
+
+    /* ── Bottom panel ── */
+    .bottom-panel { background: var(--bg-panel); border-top: 1px solid var(--border-subtle); display: none; flex-direction: column; }
+    .bottom-panel.visible { display: flex; }
+
+    .controls-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .controls-left, .controls-center, .controls-right { display: flex; align-items: center; gap: 8px; }
+    .controls-center { gap: 6px; }
+
+    .ctrl-btn {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border-subtle); background: var(--bg-surface); color: var(--text-secondary);
+      border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .ctrl-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border); }
+    .ctrl-btn.play-btn {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--accent); color: var(--bg-deepest); border: none;
+      box-shadow: 0 2px 16px var(--accent-glow-strong);
+    }
+    .ctrl-btn.play-btn:hover { background: var(--accent-dim); color: var(--bg-deepest); }
+    .ctrl-btn svg { width: 18px; height: 18px; }
+    .ctrl-btn.play-btn svg { width: 20px; height: 20px; }
+    .ctrl-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
+    .timecode {
+      font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.5px;
+      padding: 5px 10px; border-radius: 6px; background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    }
+    .timecode.current { color: var(--text-primary); }
+    .timecode.trim-in { color: var(--green); }
+    .timecode.trim-out { color: var(--red); }
+    .timecode-sep { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+    .duration-badge {
+      font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--accent-glow); border: 1px solid rgba(212, 168, 83, 0.15);
+    }
+
+    .add-clip-btn {
+      display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+      border: 1px solid var(--border); background: var(--bg-surface);
+      color: var(--text-secondary); font-family: var(--font-sans); font-size: 12px;
+      font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.2s;
+    }
+    .add-clip-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--accent); }
+    .add-clip-btn:active { transform: scale(0.97); }
+    .add-clip-btn svg { width: 14px; height: 14px; }
+
+    .export-all-btn {
+      display: flex; align-items: center; gap: 6px; padding: 8px 18px;
+      border: none; background: var(--accent); color: var(--bg-deepest);
+      font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+      border-radius: 8px; cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 2px 12px var(--accent-glow-strong);
+    }
+    .export-all-btn:hover { background: var(--accent-dim); transform: translateY(-1px); }
+    .export-all-btn:active { transform: translateY(0); }
+    .export-all-btn svg { width: 16px; height: 16px; }
+
+    /* ── Timeline ── */
+    .timeline-container { padding: 14px 16px 6px; position: relative; }
+    .timeline {
+      position: relative; height: var(--timeline-h); background: var(--bg-surface);
+      border-radius: 8px; border: 1px solid var(--border-subtle); overflow: hidden; cursor: pointer;
+    }
+    .timeline-waveform { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 4px 0; gap: 1px; opacity: 0.3; }
+    .waveform-bar { flex: 1; background: var(--text-muted); border-radius: 1px 1px 0 0; min-width: 2px; }
+
+    .timeline-clip-marker { position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none; border-left: 1px dashed rgba(212, 168, 83, 0.3); border-right: 1px dashed rgba(212, 168, 83, 0.3); }
+    .timeline-clip-marker-fill { position: absolute; inset: 0; background: rgba(212, 168, 83, 0.06); }
+    .timeline-clip-marker-label { position: absolute; top: 2px; left: 3px; font-family: var(--font-mono); font-size: 8px; color: var(--accent); opacity: 0.6; }
+
+    .trim-overlay-left, .trim-overlay-right { position: absolute; top: 0; bottom: 0; background: var(--trim-excluded); z-index: 2; pointer-events: none; }
+    .trim-overlay-left { left: 0; }
+    .trim-overlay-right { right: 0; }
+    .trim-region { position: absolute; top: 0; bottom: 0; background: var(--trim-region); border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent); z-index: 2; pointer-events: none; }
+    .trim-handle { position: absolute; top: 0; bottom: 0; width: var(--handle-w); z-index: 5; cursor: ew-resize; display: flex; align-items: center; justify-content: center; }
+    .trim-handle::before { content: ''; width: 4px; height: 28px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow-strong); transition: all 0.15s; }
+    .trim-handle:hover::before, .trim-handle.dragging::before { width: 5px; height: 34px; }
+    .trim-handle-left { border-radius: 8px 0 0 8px; background: linear-gradient(90deg, rgba(212,168,83,0.15), transparent); }
+    .trim-handle-right { border-radius: 0 8px 8px 0; background: linear-gradient(-90deg, rgba(212,168,83,0.15), transparent); }
+    .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text-primary); z-index: 4; pointer-events: none; box-shadow: 0 0 6px rgba(255,255,255,0.3); }
+    .playhead::before { content: ''; position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background: var(--text-primary); border-radius: 50%; box-shadow: 0 0 8px rgba(255,255,255,0.3); }
+    .timeline-ticks { display: flex; justify-content: space-between; padding: 4px 4px 0; }
+    .tick { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); opacity: 0.6; }
+
+    /* ── Transcript track ── */
+    .transcript-track {
+      padding: 4px 16px 14px; display: none;
+    }
+    .transcript-track.visible { display: block; }
+    .transcript-bar {
+      position: relative; height: 28px; background: var(--bg-surface);
+      border-radius: 6px; border: 1px solid var(--border-subtle); overflow: hidden;
+    }
+    .transcript-segment {
+      position: absolute; top: 2px; bottom: 2px; border-radius: 3px;
+      background: rgba(92, 143, 196, 0.15); border: 1px solid rgba(92, 143, 196, 0.2);
+      display: flex; align-items: center; padding: 0 4px; overflow: hidden;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .transcript-segment:hover { background: rgba(92, 143, 196, 0.25); }
+    .transcript-segment-text {
+      font-family: var(--font-mono); font-size: 9px; color: var(--blue);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .transcript-full {
+      max-height: 120px; overflow-y: auto; margin: 8px 16px 14px;
+      padding: 10px 12px; background: var(--bg-surface); border-radius: 8px;
+      border: 1px solid var(--border-subtle); display: none;
+      font-size: 12px; line-height: 1.6; color: var(--text-secondary);
+    }
+    .transcript-full.visible { display: block; }
+    .transcript-full .seg {
+      display: inline; cursor: pointer; padding: 1px 2px; border-radius: 2px;
+      transition: background 0.1s;
+    }
+    .transcript-full .seg:hover { background: rgba(92, 143, 196, 0.2); color: var(--text-primary); }
+    .transcript-full .seg.active { background: rgba(212, 168, 83, 0.2); color: var(--accent); }
+    .transcript-full .seg-time {
+      font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-right: 4px;
+    }
+
+    /* ── Status bar for transcription ── */
+    .status-bar {
+      display: none; align-items: center; gap: 8px;
+      padding: 6px 16px; background: var(--bg-deep); border-top: 1px solid var(--border-subtle);
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    }
+    .status-bar.visible { display: flex; }
+    .status-spinner {
+      width: 12px; height: 12px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%) translateY(20px);
+      padding: 10px 20px; background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 13px; color: var(--text-primary);
+      opacity: 0; transition: all 0.3s; z-index: 100; pointer-events: none;
+      font-family: var(--font-mono);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--green); color: var(--green); }
+    .toast.error { border-color: var(--red); color: var(--red); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Filename bar */
+    .filename-bar {
+      display: none; align-items: center; gap: 8px; padding: 0 16px; height: 32px;
+      background: var(--bg-deep); border-bottom: 1px solid var(--border-subtle);
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    }
+    .filename-bar.visible { display: flex; }
+    .filename-bar .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .filename-bar .name { color: var(--text-secondary); }
+
+    /* Volume */
+    .volume-group { display: flex; align-items: center; gap: 6px; }
+    input[type="range"] { -webkit-appearance: none; width: 70px; height: 4px; background: var(--border); border-radius: 2px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--text-secondary); cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb:hover { background: var(--text-primary); }
+
+    /* ═══════════════════════════════════════ */
+    /* ── SETTINGS PAGE ── */
+    /* ═══════════════════════════════════════ */
+    .settings-page {
+      padding: 0; overflow-y: auto;
+    }
+    .settings-scroll {
+      max-width: 640px; margin: 0 auto; padding: 40px 32px 60px;
+    }
+    .settings-back {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+      border: 1px solid var(--border-subtle); background: var(--bg-surface);
+      color: var(--text-secondary); font-family: var(--font-sans); font-size: 12px;
+      border-radius: 6px; cursor: pointer; transition: all 0.15s; margin-bottom: 28px;
+    }
+    .settings-back:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .settings-back svg { width: 14px; height: 14px; }
+    .settings-h1 {
+      font-family: var(--font-sans); font-size: 22px; font-weight: 700;
+      color: var(--text-primary); margin-bottom: 6px;
+    }
+    .settings-subtitle {
+      font-size: 13px; color: var(--text-muted); margin-bottom: 32px;
+    }
+    .settings-section {
+      margin-bottom: 28px;
+    }
+    .settings-section-title {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.8px; color: var(--text-muted); text-transform: uppercase;
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .settings-field { margin-bottom: 16px; }
+    .settings-label {
+      display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .settings-hint {
+      font-size: 11px; color: var(--text-muted); margin-top: 4px;
+    }
+    .settings-input {
+      width: 100%; padding: 10px 14px;
+      font-family: var(--font-mono); font-size: 13px; color: var(--text-primary);
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: 8px; outline: none; transition: border-color 0.15s;
+    }
+    .settings-input:focus { border-color: var(--accent); }
+    .settings-input::placeholder { color: var(--text-muted); }
+    .settings-input[type="password"] { letter-spacing: 2px; }
+    .settings-select {
+      width: 100%; padding: 10px 14px;
+      font-family: var(--font-sans); font-size: 13px; color: var(--text-primary);
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: 8px; outline: none; -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .settings-select:focus { border-color: var(--accent); }
+    .settings-select option { background: var(--bg-panel); color: var(--text-primary); }
+    .settings-row {
+      display: flex; gap: 12px;
+    }
+    .settings-row .settings-field { flex: 1; }
+    .settings-save-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 20px; border-top: 1px solid var(--border-subtle);
+      margin-top: 12px;
+    }
+    .settings-saved-msg {
+      font-family: var(--font-mono); font-size: 12px; color: var(--green);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .settings-saved-msg.show { opacity: 1; }
+    .settings-save-btn {
+      padding: 10px 28px; border: none; background: var(--accent); color: var(--bg-deepest);
+      font-family: var(--font-sans); font-size: 14px; font-weight: 600;
+      border-radius: 8px; cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 2px 12px var(--accent-glow-strong);
+    }
+    .settings-save-btn:hover { background: var(--accent-dim); transform: translateY(-1px); }
+    .settings-save-btn:active { transform: translateY(0); }
+
+    /* ── Semantic analysis panel ── */
+    .analysis-panel {
+      display: none; flex-direction: column;
+      background: var(--bg-panel); border-top: 1px solid var(--border-subtle);
+      max-height: 220px; overflow: hidden;
+    }
+    .analysis-panel.visible { display: flex; }
+    .analysis-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .analysis-header-title {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.5px; color: var(--purple); text-transform: uppercase;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .analysis-header-title svg { width: 14px; height: 14px; }
+    .analysis-close {
+      width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; color: var(--text-muted); cursor: pointer;
+      border-radius: 4px; transition: all 0.15s;
+    }
+    .analysis-close:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+    .analysis-close svg { width: 12px; height: 12px; }
+    .analysis-body {
+      flex: 1; overflow-y: auto; padding: 12px 16px;
+      font-size: 13px; line-height: 1.7; color: var(--text-secondary);
+      white-space: pre-wrap; font-family: var(--font-sans);
+    }
+    .analysis-body .topic-tag {
+      display: inline-block; padding: 2px 8px; margin: 2px 3px;
+      background: rgba(155, 125, 212, 0.12); border: 1px solid rgba(155, 125, 212, 0.2);
+      border-radius: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--purple);
+    }
+    .analysis-body .time-ref {
+      font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+      cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
+    }
+    .analysis-body .time-ref:hover { color: var(--text-primary); }
+    .analysis-body h4 {
+      font-size: 12px; font-weight: 600; color: var(--text-primary);
+      margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px;
+      font-family: var(--font-mono);
+    }
+    .settings-token-toggle {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border-subtle); background: var(--bg-elevated);
+      color: var(--text-muted); border-radius: 6px; cursor: pointer;
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      transition: all 0.15s;
+    }
+    .settings-token-toggle:hover { color: var(--text-secondary); border-color: var(--border); }
+    .settings-token-toggle svg { width: 14px; height: 14px; }
+    .settings-input-wrap { position: relative; }
+    .settings-input-wrap .settings-input { padding-right: 44px; }
+  </style>
+</head>
+<body>
+
+  <!-- Title Bar -->
+  <div class="titlebar">
+    <div class="titlebar-brand">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="23 7 16 12 23 17 23 7"/>
+        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+      </svg>
+      Trimmer
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" id="btnSettings" title="Settings" style="-webkit-app-region:no-drag;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="titlebar-btn" onclick="api.minimize()">
+        <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="1.5" rx="0.75" fill="currentColor"/></svg>
+      </button>
+      <button class="titlebar-btn" onclick="api.maximize()">
+        <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+      </button>
+      <button class="titlebar-btn close" onclick="api.close()">
+        <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ EDITOR PAGE ═══════════════════════ -->
+  <div class="page active" id="pageEditor">
+    <div class="filename-bar" id="filenameBar">
+      <span class="dot"></span>
+      <span class="name" id="fileName">—</span>
+    </div>
+    <div class="app-body">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Clips</span>
+          <span class="clip-count" id="clipCount">0</span>
+        </div>
+        <div class="sidebar-clips" id="clipList">
+          <div class="sidebar-empty" id="sidebarEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+            <div class="sidebar-empty-text">Выделите фрагмент и нажмите<br><strong style="color:var(--accent)">+ Add Clip</strong></div>
+            <div class="sidebar-empty-hint">I / O — set in/out · B — add clip</div>
+          </div>
+        </div>
+      </div>
+      <!-- Main -->
+      <div class="main-content">
+        <div class="video-area" id="videoArea">
+          <div class="drop-zone" id="dropZone">
+            <div class="drop-ring"><div class="drop-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div></div>
+            <div class="drop-text">Перетащите видео или <strong>выберите файл</strong></div>
+            <div class="drop-hint">MP4 · MKV · AVI · MOV · WEBM</div>
+          </div>
+          <video id="videoPlayer" style="display:none;"></video>
+        </div>
+
+        <div class="bottom-panel" id="bottomPanel">
+          <div class="controls-bar">
+            <div class="controls-left">
+              <span class="timecode trim-in" id="trimInCode">00:00.000</span>
+              <span class="timecode-sep">/</span>
+              <span class="timecode current" id="currentCode">00:00.000</span>
+              <span class="timecode-sep">/</span>
+              <span class="timecode trim-out" id="trimOutCode">00:00.000</span>
+              <span class="duration-badge" id="trimDuration">0.0s</span>
+            </div>
+            <div class="controls-center">
+              <button class="ctrl-btn" id="btnSkipBack" title="−5s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>
+              <button class="ctrl-btn" id="btnFrameBack" title="−1 frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+              <button class="ctrl-btn play-btn" id="btnPlay">
+                <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><rect x="5" y="3" width="4" height="18" rx="1"/><rect x="15" y="3" width="4" height="18" rx="1"/></svg>
+              </button>
+              <button class="ctrl-btn" id="btnFrameFwd" title="+1 frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+              <button class="ctrl-btn" id="btnSkipFwd" title="+5s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></button>
+            </div>
+            <div class="controls-right">
+              <button class="add-clip-btn" id="btnAddClip" title="Add current range as clip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Clip
+              </button>
+              <button class="ctrl-btn" id="btnTranscribe" title="Transcribe audio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+              <button class="ctrl-btn" id="btnToggleTranscript" title="Show/hide transcript text" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+              </button>
+              <button class="ctrl-btn" id="btnAnalyze" title="Semantic analysis (Groq)" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </button>
+              <div class="volume-group">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+              </div>
+              <button class="ctrl-btn" id="btnOpenFile" title="Open file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
+              <button class="export-all-btn" id="btnExportAll">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export All
+              </button>
+            </div>
+          </div>
+
+          <div class="timeline-container">
+            <div class="timeline" id="timeline">
+              <div class="timeline-waveform" id="waveform"></div>
+              <div id="clipMarkers"></div>
+              <div class="trim-overlay-left" id="overlayLeft"></div>
+              <div class="trim-overlay-right" id="overlayRight"></div>
+              <div class="trim-region" id="trimRegion"></div>
+              <div class="trim-handle trim-handle-left" id="handleLeft"></div>
+              <div class="trim-handle trim-handle-right" id="handleRight"></div>
+              <div class="playhead" id="playhead"></div>
+            </div>
+            <div class="timeline-ticks" id="ticks"></div>
+          </div>
+
+          <!-- Transcript visualization on timeline -->
+          <div class="transcript-track" id="transcriptTrack">
+            <div class="transcript-bar" id="transcriptBar"></div>
+          </div>
+
+          <!-- Full transcript text -->
+          <div class="transcript-full" id="transcriptFull"></div>
+
+          <!-- Status bar -->
+          <!-- Semantic analysis results -->
+          <div class="analysis-panel" id="analysisPanel">
+            <div class="analysis-header">
+              <span class="analysis-header-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Semantic Analysis · Groq
+              </span>
+              <button class="analysis-close" id="btnCloseAnalysis">
+                <svg viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <div class="analysis-body" id="analysisBody"></div>
+          </div>
+
+          <div class="status-bar" id="statusBar">
+            <div class="status-spinner"></div>
+            <span id="statusText">Processing…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ SETTINGS PAGE ═══════════════════════ -->
+  <div class="page settings-page" id="pageSettings">
+    <div class="settings-scroll">
+      <button class="settings-back" id="settingsBack">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <h1 class="settings-h1">Settings</h1>
+      <p class="settings-subtitle">API tokens and model configuration. Stored locally on your machine.</p>
+
+      <!-- API Keys -->
+      <div class="settings-section">
+        <div class="settings-section-title">API Keys</div>
+
+        <div class="settings-field">
+          <label class="settings-label">OpenAI API Key</label>
+          <div class="settings-input-wrap">
+            <input type="password" class="settings-input" id="setOpenaiKey" placeholder="sk-..." autocomplete="off">
+            <button class="settings-token-toggle" data-target="setOpenaiKey">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="settings-hint">Used for Whisper API transcription and GPT-4o vision analysis</div>
+        </div>
+
+        <div class="settings-field">
+          <label class="settings-label">Anthropic API Key</label>
+          <div class="settings-input-wrap">
+            <input type="password" class="settings-input" id="setAnthropicKey" placeholder="sk-ant-..." autocomplete="off">
+            <button class="settings-token-toggle" data-target="setAnthropicKey">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="settings-hint">Used for Claude Vision frame analysis</div>
+        </div>
+
+        <div class="settings-field">
+          <label class="settings-label">Groq API Key</label>
+          <div class="settings-input-wrap">
+            <input type="password" class="settings-input" id="setGroqKey" placeholder="gsk_..." autocomplete="off">
+            <button class="settings-token-toggle" data-target="setGroqKey">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="settings-hint">Used for semantic analysis of video content (topics, key moments, summaries)</div>
+        </div>
+      </div>
+
+      <!-- Whisper -->
+      <div class="settings-section">
+        <div class="settings-section-title">Transcription (Whisper)</div>
+
+        <div class="settings-row">
+          <div class="settings-field">
+            <label class="settings-label">Mode</label>
+            <select class="settings-select" id="setWhisperMode">
+              <option value="local">Local (whisper CLI)</option>
+              <option value="openai-api">OpenAI API</option>
+            </select>
+            <div class="settings-hint">Local requires <code style="color:var(--accent)">pip install openai-whisper</code></div>
+          </div>
+          <div class="settings-field">
+            <label class="settings-label">Model (local)</label>
+            <select class="settings-select" id="setWhisperModel">
+              <option value="tiny">tiny (fastest)</option>
+              <option value="base" selected>base</option>
+              <option value="small">small</option>
+              <option value="medium">medium</option>
+              <option value="large-v3">large-v3 (best)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label class="settings-label">Language</label>
+          <input type="text" class="settings-input" id="setWhisperLang" placeholder="auto-detect (or: en, ru, de, fr, …)">
+          <div class="settings-hint">Leave empty for auto-detection. Use ISO 639-1 codes.</div>
+        </div>
+      </div>
+
+      <!-- Vision -->
+      <div class="settings-section">
+        <div class="settings-section-title">Vision Analysis</div>
+
+        <div class="settings-row">
+          <div class="settings-field">
+            <label class="settings-label">Provider</label>
+            <select class="settings-select" id="setVisionProvider">
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT-4o)</option>
+            </select>
+          </div>
+          <div class="settings-field">
+            <label class="settings-label">Model</label>
+            <input type="text" class="settings-input" id="setVisionModel" placeholder="claude-sonnet-4-6">
+          </div>
+        </div>
+
+        <div class="settings-field">
+          <label class="settings-label">Frame interval (seconds)</label>
+          <input type="number" class="settings-input" id="setFrameInterval" min="1" max="60" value="3">
+          <div class="settings-hint">One keyframe extracted every N seconds for analysis</div>
+        </div>
+      </div>
+
+      <!-- Groq -->
+      <div class="settings-section">
+        <div class="settings-section-title">Semantic Analysis (Groq)</div>
+        <div class="settings-field">
+          <label class="settings-label">Model</label>
+          <select class="settings-select" id="setGroqModel">
+            <option value="llama-3.3-70b-versatile">Llama 3.3 70B (versatile)</option>
+            <option value="llama-3.1-8b-instant">Llama 3.1 8B (instant)</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+            <option value="gemma2-9b-it">Gemma 2 9B</option>
+          </select>
+          <div class="settings-hint">Model used for semantic breakdown of transcript content</div>
+        </div>
+      </div>
+
+      <div class="settings-save-bar">
+        <span class="settings-saved-msg" id="savedMsg">Settings saved</span>
+        <button class="settings-save-btn" id="btnSaveSettings">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ── DOM refs ──
+    const video = document.getElementById('videoPlayer');
+    const dropZone = document.getElementById('dropZone');
+    const bottomPanel = document.getElementById('bottomPanel');
+    const filenameBar = document.getElementById('filenameBar');
+    const fileName = document.getElementById('fileName');
+    const timeline = document.getElementById('timeline');
+    const handleLeft = document.getElementById('handleLeft');
+    const handleRight = document.getElementById('handleRight');
+    const playhead = document.getElementById('playhead');
+    const overlayLeft = document.getElementById('overlayLeft');
+    const overlayRight = document.getElementById('overlayRight');
+    const trimRegion = document.getElementById('trimRegion');
+    const waveform = document.getElementById('waveform');
+    const ticksEl = document.getElementById('ticks');
+    const clipMarkers = document.getElementById('clipMarkers');
+    const trimInCode = document.getElementById('trimInCode');
+    const currentCode = document.getElementById('currentCode');
+    const trimOutCode = document.getElementById('trimOutCode');
+    const trimDuration = document.getElementById('trimDuration');
+    const btnPlay = document.getElementById('btnPlay');
+    const iconPlay = document.getElementById('iconPlay');
+    const iconPause = document.getElementById('iconPause');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const toast = document.getElementById('toast');
+    const clipList = document.getElementById('clipList');
+    const clipCount = document.getElementById('clipCount');
+    const sidebarEmpty = document.getElementById('sidebarEmpty');
+    const transcriptTrack = document.getElementById('transcriptTrack');
+    const transcriptBar = document.getElementById('transcriptBar');
+    const transcriptFull = document.getElementById('transcriptFull');
+    const statusBar = document.getElementById('statusBar');
+    const statusText = document.getElementById('statusText');
+    const btnTranscribe = document.getElementById('btnTranscribe');
+    const btnToggleTranscript = document.getElementById('btnToggleTranscript');
+
+    // Pages
+    const pageEditor = document.getElementById('pageEditor');
+    const pageSettings = document.getElementById('pageSettings');
+
+    let filePath = null;
+    let duration = 0;
+    let trimIn = 0;
+    let trimOut = 0;
+    let dragging = null;
+    let isPlaying = false;
+    let clips = [];
+    let activeClipId = null;
+    let clipIdCounter = 0;
+    let transcriptSegments = [];
+    let showTranscriptText = false;
+
+    // ── Helpers ──
+    function fmt(t) {
+      if (!isFinite(t) || t < 0) t = 0;
+      const m = Math.floor(t / 60);
+      const s = Math.floor(t % 60);
+      const ms = Math.floor((t % 1) * 1000);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+    }
+    function fmtShort(t) {
+      if (!isFinite(t) || t < 0) t = 0;
+      const m = Math.floor(t / 60);
+      const s = Math.floor(t % 60);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    function fmtDur(d) {
+      return d >= 60 ? `${Math.floor(d / 60)}m ${(d % 60).toFixed(1)}s` : `${d.toFixed(1)}s`;
+    }
+    function showToast(msg, type = '') {
+      toast.textContent = msg;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => toast.className = 'toast', 2500);
+    }
+    function pctToTime(pct) { return Math.max(0, Math.min(duration, pct * duration)); }
+    function timeToPct(t) { return duration > 0 ? t / duration : 0; }
+    function setStatus(msg) { statusBar.classList.add('visible'); statusText.textContent = msg; }
+    function hideStatus() { statusBar.classList.remove('visible'); }
+
+    // ── Navigation ──
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+    document.getElementById('btnSettings').addEventListener('click', () => { showPage('pageSettings'); loadSettingsUI(); });
+    document.getElementById('settingsBack').addEventListener('click', () => showPage('pageEditor'));
+
+    // ── Settings ──
+    async function loadSettingsUI() {
+      const s = await api.getSettings();
+      document.getElementById('setOpenaiKey').value = s.openaiKey || '';
+      document.getElementById('setAnthropicKey').value = s.anthropicKey || '';
+      document.getElementById('setGroqKey').value = s.groqKey || '';
+      document.getElementById('setWhisperMode').value = s.whisperMode || 'local';
+      document.getElementById('setWhisperModel').value = s.whisperModel || 'base';
+      document.getElementById('setWhisperLang').value = s.whisperLanguage || '';
+      document.getElementById('setVisionProvider').value = s.visionProvider || 'anthropic';
+      document.getElementById('setVisionModel').value = s.visionModel || 'claude-sonnet-4-6';
+      document.getElementById('setGroqModel').value = s.groqModel || 'llama-3.3-70b-versatile';
+      document.getElementById('setFrameInterval').value = s.frameInterval || 3;
+    }
+    document.getElementById('btnSaveSettings').addEventListener('click', async () => {
+      const settings = {
+        openaiKey: document.getElementById('setOpenaiKey').value.trim(),
+        anthropicKey: document.getElementById('setAnthropicKey').value.trim(),
+        groqKey: document.getElementById('setGroqKey').value.trim(),
+        whisperMode: document.getElementById('setWhisperMode').value,
+        whisperModel: document.getElementById('setWhisperModel').value,
+        whisperLanguage: document.getElementById('setWhisperLang').value.trim(),
+        visionProvider: document.getElementById('setVisionProvider').value,
+        visionModel: document.getElementById('setVisionModel').value.trim() || 'claude-sonnet-4-6',
+        groqModel: document.getElementById('setGroqModel').value,
+        frameInterval: parseInt(document.getElementById('setFrameInterval').value) || 3,
+      };
+      await api.saveSettings(settings);
+      const msg = document.getElementById('savedMsg');
+      msg.classList.add('show');
+      setTimeout(() => msg.classList.remove('show'), 2000);
+    });
+
+    // Token visibility toggles
+    document.querySelectorAll('.settings-token-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    });
+
+    // ── File loading ──
+    async function loadFile(path) {
+      filePath = path;
+      video.src = `file://${path}`;
+      video.style.display = 'block';
+      dropZone.style.display = 'none';
+      filenameBar.classList.add('visible');
+      fileName.textContent = path.split('/').pop().split('\\').pop();
+      clips = []; activeClipId = null; clipIdCounter = 0;
+      transcriptSegments = [];
+      transcriptTrack.classList.remove('visible');
+      transcriptFull.classList.remove('visible');
+      btnToggleTranscript.style.display = 'none';
+      btnAnalyze.style.display = 'none';
+      analysisPanel.classList.remove('visible');
+      renderClipList();
+
+      video.addEventListener('loadedmetadata', () => {
+        duration = video.duration;
+        trimIn = 0; trimOut = duration;
+        bottomPanel.classList.add('visible');
+        updateUI(); generateWaveform(); generateTicks();
+      }, { once: true });
+    }
+
+    dropZone.addEventListener('click', async () => { const p = await api.openFile(); if (p) loadFile(p); });
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) loadFile(f.path); });
+    document.getElementById('btnOpenFile').addEventListener('click', async () => { const p = await api.openFile(); if (p) loadFile(p); });
+
+    // ── Transcription ──
+    btnTranscribe.addEventListener('click', startTranscription);
+
+    async function startTranscription() {
+      if (!filePath) return;
+      const settings = await api.getSettings();
+
+      btnTranscribe.classList.add('active');
+      setStatus('Extracting audio…');
+
+      const audioResult = await api.extractAudio(filePath);
+      if (!audioResult.success) {
+        hideStatus(); btnTranscribe.classList.remove('active');
+        showToast('Audio extraction failed: ' + audioResult.error, 'error');
+        return;
+      }
+
+      setStatus('Transcribing…');
+      let result;
+      if (settings.whisperMode === 'openai-api') {
+        result = await api.transcribeOpenAI({ audioPath: audioResult.audioPath });
+      } else {
+        result = await api.transcribeLocal({
+          audioPath: audioResult.audioPath,
+          model: settings.whisperModel || 'base',
+          language: settings.whisperLanguage || '',
+        });
+      }
+
+      hideStatus();
+      btnTranscribe.classList.remove('active');
+
+      if (!result.success) {
+        showToast('Transcription failed: ' + result.error, 'error');
+        return;
+      }
+
+      transcriptSegments = result.segments;
+      renderTranscript();
+      btnToggleTranscript.style.display = 'flex';
+      btnAnalyze.style.display = 'flex';
+      showToast(`Transcribed ${transcriptSegments.length} segments`, 'success');
+    }
+
+    // Progress from local whisper
+    api.onTranscribeProgress((msg) => {
+      const match = msg.match(/(\d+)%/);
+      if (match) setStatus(`Transcribing… ${match[1]}%`);
+    });
+
+    function renderTranscript() {
+      // Timeline bar segments
+      transcriptBar.innerHTML = '';
+      transcriptSegments.forEach((seg, i) => {
+        const left = timeToPct(seg.start) * 100;
+        const width = timeToPct(seg.end - seg.start) * 100;
+        if (width < 0.1) return;
+        const el = document.createElement('div');
+        el.className = 'transcript-segment';
+        el.style.left = left + '%';
+        el.style.width = Math.max(width, 0.5) + '%';
+        el.innerHTML = `<span class="transcript-segment-text">${seg.text.trim()}</span>`;
+        el.addEventListener('click', () => { video.currentTime = seg.start; });
+        transcriptBar.appendChild(el);
+      });
+      transcriptTrack.classList.add('visible');
+
+      // Full text
+      renderTranscriptText();
+    }
+
+    function renderTranscriptText() {
+      transcriptFull.innerHTML = '';
+      transcriptSegments.forEach((seg, i) => {
+        const span = document.createElement('span');
+        span.className = 'seg';
+        span.dataset.index = i;
+        span.innerHTML = `<span class="seg-time">${fmtShort(seg.start)}</span>${seg.text.trim()} `;
+        span.addEventListener('click', () => { video.currentTime = seg.start; });
+        transcriptFull.appendChild(span);
+      });
+    }
+
+    btnToggleTranscript.addEventListener('click', () => {
+      showTranscriptText = !showTranscriptText;
+      transcriptFull.classList.toggle('visible', showTranscriptText);
+      btnToggleTranscript.classList.toggle('active', showTranscriptText);
+    });
+
+    // Highlight current transcript segment during playback
+    function updateTranscriptHighlight() {
+      if (transcriptSegments.length === 0) return;
+      const t = video.currentTime;
+      transcriptFull.querySelectorAll('.seg').forEach(el => {
+        const seg = transcriptSegments[el.dataset.index];
+        el.classList.toggle('active', seg && t >= seg.start && t < seg.end);
+      });
+    }
+
+    // ── Clips ──
+    function addClip() {
+      if (!filePath || trimIn >= trimOut) return;
+      const id = ++clipIdCounter;
+      clips.push({ id, inTime: trimIn, outTime: trimOut, name: `Clip ${id}` });
+      activeClipId = id; renderClipList(); renderClipMarkers();
+      showToast(`Clip ${id} added (${fmtDur(trimOut - trimIn)})`, 'success');
+    }
+    function removeClip(id) {
+      clips = clips.filter(c => c.id !== id);
+      if (activeClipId === id) activeClipId = null;
+      renderClipList(); renderClipMarkers();
+    }
+    function selectClip(id) {
+      const clip = clips.find(c => c.id === id);
+      if (!clip) return;
+      activeClipId = id; trimIn = clip.inTime; trimOut = clip.outTime;
+      video.currentTime = clip.inTime; updateUI(); renderClipList();
+    }
+    async function exportClip(clip, cardEl) {
+      if (!filePath) return;
+      if (cardEl) cardEl.classList.add('exporting');
+      const result = await api.exportVideo({ inputPath: filePath, startTime: clip.inTime, endTime: clip.outTime });
+      if (cardEl) cardEl.classList.remove('exporting');
+      if (result.success) showToast(`${clip.name} → exported`, 'success');
+      else showToast(`${clip.name} failed`, 'error');
+      return result;
+    }
+    async function exportAllClips() {
+      if (!filePath || clips.length === 0) return;
+      showToast(`Exporting ${clips.length} clips…`);
+      let ok = 0;
+      for (const clip of clips) {
+        const card = document.querySelector(`[data-clip-id="${clip.id}"]`);
+        const r = await exportClip(clip, card);
+        if (r && r.success) ok++;
+      }
+      showToast(`Done: ${ok}/${clips.length}`, ok === clips.length ? 'success' : 'error');
+    }
+
+    function renderClipList() {
+      clipCount.textContent = clips.length;
+      if (clips.length === 0) { sidebarEmpty.style.display = 'flex'; clipList.querySelectorAll('.clip-card').forEach(el => el.remove()); return; }
+      sidebarEmpty.style.display = 'none';
+      clipList.querySelectorAll('.clip-card').forEach(el => { if (!clips.find(c => c.id === parseInt(el.dataset.clipId))) el.remove(); });
+      clips.forEach(clip => {
+        let card = clipList.querySelector(`[data-clip-id="${clip.id}"]`);
+        if (!card) { card = document.createElement('div'); card.className = 'clip-card'; card.dataset.clipId = clip.id; clipList.appendChild(card); }
+        const dur = clip.outTime - clip.inTime;
+        const inPct = duration > 0 ? (clip.inTime / duration) * 100 : 0;
+        const outPct = duration > 0 ? (clip.outTime / duration) * 100 : 100;
+        card.className = `clip-card${activeClipId === clip.id ? ' active' : ''}`;
+        card.innerHTML = `
+          <div class="clip-card-top">
+            <span class="clip-card-name">${clip.name}</span>
+            <div class="clip-card-actions">
+              <button class="clip-action-btn export-clip" data-action="export" title="Export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+              <button class="clip-action-btn delete-clip" data-action="delete" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </div>
+          <div class="clip-card-times">
+            <span class="clip-time in">${fmtShort(clip.inTime)}</span>
+            <span class="clip-arrow">→</span>
+            <span class="clip-time out">${fmtShort(clip.outTime)}</span>
+            <span class="clip-dur">${fmtDur(dur)}</span>
+          </div>
+          <div class="clip-minibar"><div class="clip-minibar-fill" style="left:${inPct}%;width:${outPct - inPct}%"></div></div>`;
+        card.onclick = (e) => { if (!e.target.closest('[data-action]')) selectClip(clip.id); };
+        card.querySelector('[data-action="export"]').onclick = (e) => { e.stopPropagation(); exportClip(clip, card); };
+        card.querySelector('[data-action="delete"]').onclick = (e) => { e.stopPropagation(); removeClip(clip.id); };
+      });
+    }
+    function renderClipMarkers() {
+      clipMarkers.innerHTML = '';
+      clips.forEach(clip => {
+        const el = document.createElement('div');
+        el.className = 'timeline-clip-marker';
+        el.style.left = timeToPct(clip.inTime) * 100 + '%';
+        el.style.width = (timeToPct(clip.outTime) - timeToPct(clip.inTime)) * 100 + '%';
+        el.innerHTML = `<div class="timeline-clip-marker-fill"></div><span class="timeline-clip-marker-label">${clip.name}</span>`;
+        clipMarkers.appendChild(el);
+      });
+    }
+
+    document.getElementById('btnAddClip').addEventListener('click', addClip);
+    document.getElementById('btnExportAll').addEventListener('click', exportAllClips);
+
+    // ── Waveform / Ticks ──
+    function generateWaveform() {
+      waveform.innerHTML = '';
+      const count = Math.floor(timeline.clientWidth / 3);
+      for (let i = 0; i < count; i++) { const b = document.createElement('div'); b.className = 'waveform-bar'; b.style.height = (15 + Math.random() * 75) + '%'; waveform.appendChild(b); }
+    }
+    function generateTicks() {
+      ticksEl.innerHTML = '';
+      const count = Math.min(10, Math.max(5, Math.floor(duration / 5)));
+      for (let i = 0; i <= count; i++) { const t = (i / count) * duration; const el = document.createElement('span'); el.className = 'tick'; el.textContent = fmt(t); ticksEl.appendChild(el); }
+    }
+
+    // ── UI update ──
+    function updateUI() {
+      const inPct = timeToPct(trimIn) * 100;
+      const outPct = timeToPct(trimOut) * 100;
+      const curPct = timeToPct(video.currentTime) * 100;
+      overlayLeft.style.width = inPct + '%';
+      overlayRight.style.width = (100 - outPct) + '%';
+      trimRegion.style.left = inPct + '%';
+      trimRegion.style.width = (outPct - inPct) + '%';
+      const hw = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--handle-w')) / 2;
+      handleLeft.style.left = `calc(${inPct}% - ${hw}px)`;
+      handleRight.style.left = `calc(${outPct}% - ${hw}px)`;
+      playhead.style.left = curPct + '%';
+      trimInCode.textContent = fmt(trimIn);
+      trimOutCode.textContent = fmt(trimOut);
+      currentCode.textContent = fmt(video.currentTime);
+      trimDuration.textContent = fmtDur(trimOut - trimIn);
+    }
+
+    // ── Playback ──
+    btnPlay.addEventListener('click', togglePlay);
+    function togglePlay() {
+      if (video.paused) { if (video.currentTime < trimIn || video.currentTime >= trimOut) video.currentTime = trimIn; video.play(); isPlaying = true; }
+      else { video.pause(); isPlaying = false; }
+      updatePlayIcon();
+    }
+    function updatePlayIcon() { iconPlay.style.display = isPlaying ? 'none' : 'block'; iconPause.style.display = isPlaying ? 'block' : 'none'; }
+    video.addEventListener('pause', () => { isPlaying = false; updatePlayIcon(); });
+    video.addEventListener('play', () => { isPlaying = true; updatePlayIcon(); });
+
+    (function tick() {
+      if (isPlaying && video.currentTime >= trimOut) { video.pause(); video.currentTime = trimOut; isPlaying = false; updatePlayIcon(); }
+      updateUI();
+      updateTranscriptHighlight();
+      requestAnimationFrame(tick);
+    })();
+
+    document.getElementById('btnSkipBack').addEventListener('click', () => { video.currentTime = Math.max(trimIn, video.currentTime - 5); });
+    document.getElementById('btnSkipFwd').addEventListener('click', () => { video.currentTime = Math.min(trimOut, video.currentTime + 5); });
+    document.getElementById('btnFrameBack').addEventListener('click', () => { video.currentTime = Math.max(trimIn, video.currentTime - 1 / 30); });
+    document.getElementById('btnFrameFwd').addEventListener('click', () => { video.currentTime = Math.min(trimOut, video.currentTime + 1 / 30); });
+    volumeSlider.addEventListener('input', () => { video.volume = parseFloat(volumeSlider.value); });
+
+    document.addEventListener('keydown', (e) => {
+      // Don't capture keys when in settings
+      if (pageSettings.classList.contains('active')) return;
+      if (!filePath) return;
+      switch (e.code) {
+        case 'Space': e.preventDefault(); togglePlay(); break;
+        case 'ArrowLeft': video.currentTime = Math.max(trimIn, video.currentTime - (e.shiftKey ? 5 : 1 / 30)); break;
+        case 'ArrowRight': video.currentTime = Math.min(trimOut, video.currentTime + (e.shiftKey ? 5 : 1 / 30)); break;
+        case 'KeyI': trimIn = video.currentTime; if (trimIn >= trimOut) trimOut = Math.min(duration, trimIn + 0.1); updateUI(); break;
+        case 'KeyO': trimOut = video.currentTime; if (trimOut <= trimIn) trimIn = Math.max(0, trimOut - 0.1); updateUI(); break;
+        case 'KeyB': addClip(); break;
+      }
+    });
+
+    // ── Timeline dragging ──
+    function getTimelinePct(e) { const r = timeline.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); }
+    handleLeft.addEventListener('mousedown', (e) => { e.stopPropagation(); dragging = 'left'; handleLeft.classList.add('dragging'); });
+    handleRight.addEventListener('mousedown', (e) => { e.stopPropagation(); dragging = 'right'; handleRight.classList.add('dragging'); });
+    timeline.addEventListener('mousedown', (e) => { if (dragging) return; video.currentTime = pctToTime(getTimelinePct(e)); dragging = 'playhead'; });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const t = pctToTime(getTimelinePct(e));
+      if (dragging === 'left') trimIn = Math.max(0, Math.min(t, trimOut - 0.1));
+      else if (dragging === 'right') trimOut = Math.min(duration, Math.max(t, trimIn + 0.1));
+      else if (dragging === 'playhead') video.currentTime = t;
+      updateUI();
+    });
+    document.addEventListener('mouseup', () => { handleLeft.classList.remove('dragging'); handleRight.classList.remove('dragging'); dragging = null; });
+
+    video.addEventListener('dblclick', togglePlay);
+    video.addEventListener('click', togglePlay);
+    window.addEventListener('resize', () => { if (duration > 0) { generateWaveform(); generateTicks(); renderClipMarkers(); if (transcriptSegments.length) renderTranscript(); updateUI(); } });
+
+    // ── Semantic Analysis (Groq) ──
+    const btnAnalyze = document.getElementById('btnAnalyze');
+    const analysisPanel = document.getElementById('analysisPanel');
+    const analysisBody = document.getElementById('analysisBody');
+
+    btnAnalyze.addEventListener('click', runSemanticAnalysis);
+    document.getElementById('btnCloseAnalysis').addEventListener('click', () => {
+      analysisPanel.classList.remove('visible');
+    });
+
+    async function runSemanticAnalysis() {
+      if (transcriptSegments.length === 0) {
+        showToast('Transcribe the video first', 'error');
+        return;
+      }
+
+      btnAnalyze.classList.add('active');
+      setStatus('Running semantic analysis via Groq…');
+
+      // Build transcript text with timestamps
+      const transcriptText = transcriptSegments.map(seg =>
+        `[${fmtShort(seg.start)}–${fmtShort(seg.end)}] ${seg.text.trim()}`
+      ).join('\n');
+
+      const systemPrompt = `You are a video content analyst. Analyze the transcript below and provide:
+
+1. **SUMMARY** — A concise 2-3 sentence summary of the entire video content.
+
+2. **TOPICS** — List the main topics/themes discussed, each with the time range where they appear.
+
+3. **KEY MOMENTS** — Identify 3-7 most important moments (turning points, key statements, notable quotes) with their timestamps.
+
+4. **SUGGESTED CLIPS** — Based on the semantic structure, suggest logical clip boundaries (start–end times) that would make good standalone segments. For each, give a short title.
+
+Format timestamps as MM:SS. Be concise and structured. Use markdown headers (#### TITLE).`;
+
+      const result = await api.groqAnalyze({
+        systemPrompt,
+        prompt: `Here is the full transcript of the video (${fmtDur(duration)} long):\n\n${transcriptText}`,
+      });
+
+      hideStatus();
+      btnAnalyze.classList.remove('active');
+
+      if (!result.success) {
+        showToast('Analysis failed: ' + result.error, 'error');
+        return;
+      }
+
+      // Render result with clickable timestamps
+      let html = result.text
+        .replace(/####\s*(.+)/g, '<h4>$1</h4>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="color:var(--accent);background:var(--bg-deep);padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
+        .replace(/(\d{1,2}:\d{2})(?:–|-)(\d{1,2}:\d{2})/g, (match, t1, t2) => {
+          return `<span class="time-ref" data-time="${parseTimestamp(t1)}">${t1}</span>–<span class="time-ref" data-time="${parseTimestamp(t2)}">${t2}</span>`;
+        })
+        .replace(/(?<![–-])(\d{1,2}:\d{2})(?![–-]|<\/span>)/g, (match, t1) => {
+          return `<span class="time-ref" data-time="${parseTimestamp(t1)}">${t1}</span>`;
+        })
+        .replace(/\n/g, '<br>');
+
+      analysisBody.innerHTML = html;
+      analysisPanel.classList.add('visible');
+
+      // Clickable timestamps
+      analysisBody.querySelectorAll('.time-ref').forEach(el => {
+        el.addEventListener('click', () => {
+          const t = parseFloat(el.dataset.time);
+          if (!isNaN(t)) video.currentTime = t;
+        });
+      });
+
+      showToast('Semantic analysis complete', 'success');
+    }
+
+    function parseTimestamp(str) {
+      const parts = str.split(':');
+      if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      return 0;
+    }
+  </script>
+</body>
+</html>
