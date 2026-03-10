@@ -1,13 +1,54 @@
 {
   "name": "videocrab",
   "version": "2.0.0",
-  "description": "VideoCrab — smart video trimming tool",
+  "description": "VideoCrab — AI-powered video analysis & trimming tool",
   "main": "src/main.js",
   "scripts": {
     "dev": "NODE_ENV=development concurrently --kill-others \"vite dev --port 5173\" \"sleep 2 && electron . --no-sandbox\"",
     "build": "vite build",
     "start": "vite build && electron . --no-sandbox",
-    "dist": "vite build && electron-builder"
+    "dist": "vite build && electron-builder",
+    "dist:linux": "vite build && electron-builder --linux",
+    "dist:win": "vite build && electron-builder --win",
+    "dist:mac": "vite build && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.videocrab.app",
+    "productName": "VideoCrab",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "dist/**/*",
+      "src/main.js",
+      "src/preload.js",
+      "src/index.html"
+    ],
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "category": "AudioVideo",
+      "icon": ".github/logo.svg"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": ".github/logo.svg"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.video",
+      "icon": ".github/logo.svg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "dependencies": {
     "electron": "^33.0.0"
