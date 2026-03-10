@@ -2,7 +2,7 @@
   "name": "videocrab",
   "version": "2.0.0",
   "description": "VideoCrab — AI-powered video analysis & trimming tool",
-  "author": "Scott Walker",
+  "author": "Scott Walker <scott@videocrab.app>",
   "license": "MIT",
   "main": "src/main.js",
   "scripts": {
