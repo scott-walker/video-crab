@@ -274,11 +274,6 @@
 
     .showcase-item.hero-shot {
       grid-column: 1 / -1;
-      max-height: 420px;
-    }
-
-    .showcase-item.hero-shot img {
-      object-position: top;
     }
 
     .showcase-item .showcase-label {
@@ -310,7 +305,7 @@
         grid-template-columns: 1fr;
       }
       .showcase-item.hero-shot {
-        max-height: 260px;
+        grid-column: 1;
       }
     }
 
@@ -549,6 +544,10 @@
         <div class="showcase-label"><span>Transcript</span> — clickable segments with per-region transcription</div>
       </div>
       <div class="showcase-item">
+        <img src="screenshots/screen6.png" alt="TTS mini-player" loading="lazy" />
+        <div class="showcase-label"><span>Listen</span> — TTS narration with built-in mini-player</div>
+      </div>
+      <div class="showcase-item hero-shot">
         <img src="screenshots/screen8.png" alt="Settings page" loading="lazy" />
         <div class="showcase-label"><span>Settings</span> — API keys, models, language, TTS voice & proxy</div>
       </div>
